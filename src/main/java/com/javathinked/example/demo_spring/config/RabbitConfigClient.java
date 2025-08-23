@@ -7,6 +7,9 @@ import org.springframework.amqp.core.TopicExchange;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+@org.springframework.context.annotation.Profile("!test")
+
+
 @Configuration
 public class RabbitConfigClient {
 
