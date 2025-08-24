@@ -59,8 +59,8 @@
     <dependency>
   <groupId>org.springframework.boot</groupId>
   <artifactId>spring-boot-starter-amqp</artifactId>
-</dependency>
 
+  </dependency>
 
     <!-- JWT (JJWT) -->
     <dependency>
@@ -100,6 +100,12 @@
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
       <optional>true</optional>
+    </dependency>
+
+    <!-- Micrometer Prometheus -->
+    <dependency>
+    <groupId>io.micrometer</groupId>
+    <artifactId>micrometer-registry-prometheus</artifactId>
     </dependency>
   </dependencies>
 
