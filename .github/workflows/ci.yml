@@ -1,12 +1,17 @@
 name: ci
 
 on:
-  pull_request:
-    branches: [ develop, main ]
   push:
-    branches: [ "feature/**", develop, main ]
-  tags:
-    - "v*.*.*"
+    branches:
+      - 'feature/**'
+      - develop
+      - main
+    tags:
+      - 'v*.*.*'      # déclenche aussi quand tu pousses un tag de release
+  pull_request:
+    branches:
+      - develop
+      - main
 
 permissions:
   contents: read
@@ -17,7 +22,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  IMAGE: ghcr.io/${{ github.repository }}   # ghcr.io/kuetcheal/service_client
+  IMAGE: ghcr.io/${{ github.repository }}  # ghcr.io/kuetcheal/service_client
+
 
 jobs:
   build_test:
