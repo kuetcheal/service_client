@@ -1,0 +1,22 @@
+groups:
+- name: generic-alerts
+  rules:
+  - alert: InstanceDown
+    expr: up == 0
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Instance {{ $labels.instance }} down"
+      description: "Le job {{ $labels.job }} ne répond plus."
+
+  - alert: HighHttp5xxRate
+    expr: |
+      sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m])) by (job)
+      / sum(rate(http_server_requests_seconds_count[5m])) by (job) > 0.05
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Erreurs 5xx élevées (job {{ $labels.job }})"
+      description: "Taux d'erreur > 5% sur 5m"
