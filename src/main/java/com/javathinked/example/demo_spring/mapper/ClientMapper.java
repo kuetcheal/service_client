@@ -1,14 +1,10 @@
 package com.javathinked.example.demo_spring.mapper;
-
 import com.javathinked.example.demo_spring.dto.ClientDto;
 import com.javathinked.example.demo_spring.model.Client;
-
 import java.time.format.DateTimeFormatter;
-
 public class ClientMapper {
 
     private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-
     public static Client toEntity(ClientDto dto) {
         if (dto == null) return null;
         Client e = new Client();
@@ -23,7 +19,6 @@ public class ClientMapper {
         // createdAt géré en @PrePersist dans l'entité
         return e;
     }
-
     public static ClientDto toDto(Client e) {
         if (e == null) return null;
         ClientDto dto = new ClientDto();

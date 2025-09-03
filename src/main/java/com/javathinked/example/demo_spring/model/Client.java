@@ -38,6 +38,20 @@ public class Client {
         this.profile = profile;
     }
 
+    // ====== Constructeurs pour tests ======
+    public Client(Long id, String username, String firstName, String lastName,
+                  String postalCode, String city, String companyName, String profile) {
+        this.id = id;
+        this.username = username;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.postalCode = postalCode;
+        this.city = city;
+        this.companyName = companyName;
+        this.profile = profile;
+    }
+
+
     // ====== Hooks JPA ======
     @PrePersist
     protected void onCreate() {
