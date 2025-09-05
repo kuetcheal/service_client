@@ -15,7 +15,7 @@ import static java.util.stream.Collectors.toList;
 
 @RestController
 @RequestMapping("/api/clients")
-// @CrossOrigin(origins = "http://localhost:3000") // utile quand tu brancheras Nuxt
+
 public class ClientController {
 
     private final ClientService clientService;

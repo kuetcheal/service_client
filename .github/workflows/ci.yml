@@ -2,28 +2,21 @@ name: ci
 
 on:
   push:
-    branches:
-      - 'feature/**'
-      - develop
-      - main
-    tags:
-      - 'v*.*.*'      # déclenche aussi quand tu pousses un tag de release
+    branches: ['feature/**', 'develop', 'main']
+    tags:     ['v*.*.*']              # release semver
   pull_request:
-    branches:
-      - develop
-      - main
+    branches: ['develop', 'main']
 
 permissions:
   contents: read
   packages: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  IMAGE: ghcr.io/${{ github.repository }}  # ghcr.io/kuetcheal/service_client
-
+  IMAGE: ghcr.io/${{ github.repository }}   # ex: ghcr.io/kuetcheal/service_client
 
 jobs:
   build_test:
@@ -35,67 +28,55 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: '21'
+          cache: maven
 
-      - name: Cache Maven
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2-
+      - name: Build & test (Maven)
+        run: mvn -B -DskipTests=false package
 
-      - name: Lint + tests
-        run: |
-          mvn -B -DskipTests=false test
-          mvn -B -DskipTests package
-
-      - name: Upload build artifacts
+      - name: Upload jar & reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: maven-artifacts
+          name: jar-and-reports
           path: |
-            **/target/*.jar
+            target/*.jar
             **/target/surefire-reports/**
 
   docker:
     needs: build_test
+    if: github.event_name != 'pull_request'     # ne push pas l'image sur les PR
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Log in to GHCR
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Génère des tags selon GitFlow (branche, SHA, semver)
-      - name: Docker meta
+      - name: Docker meta (GitFlow tags)
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE }}
-          flavor: |
-            latest=false
           tags: |
-            type=ref,event=branch        # ex: develop, feature-integration_et_deploiement_continue
-            type=sha,prefix=sha-         # ex: sha-abc1234
-            type=semver,pattern={{version}}   # si tu pushes un tag vX.Y.Z
-            type=semver,pattern={{major}}.{{minor}}
+            # → branche develop
+            type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
+            # → branche main
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            # → tag semver vX.Y.Z
+            type=semver,pattern={{version}},enable=${{ startsWith(github.ref,'refs/tags/v') }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ startsWith(github.ref,'refs/tags/v') }}
+            # → tag sha pour traçabilité
+            type=sha,prefix=sha-
 
       - name: Build & Push image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
-      # Tag 'latest' quand on pousse sur main (utile pour prod)
-      - name: Tag latest on main
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          docker build -t $IMAGE:latest .
-          docker push $IMAGE:latest
