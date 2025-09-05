@@ -41,3 +41,8 @@ Cela garantit que seul un client front-end connu peut communiquer avec l’API, 
 - les mappers (DTO ↔ Entity) qui assurent la conversion entre les objets exposés par l’API (DTO) et les entités persistées (Entity). Un défaut de mapping provoque des bugs silencieux (champs perdus, mauvais formats, null inattendus).
 - les DTO pour vérifier que les contraintes @NotBlank, @Size, etc. sur ClientDto fonctionnent (rejets des valeurs invalides, DTO valide accepté).
 - le Repository avec @DataJpaTest pour vérifier la persistance de base (save, findById, findAll) et les colonnes gérées par l’entité (ex. createdAt via @PrePersist).
+
+
+
+
+sqp_851d30fcab9b2ac092136d5ebc7648283fc2c82d
