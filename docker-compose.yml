@@ -1,84 +1,88 @@
-# docker-compose.yml (Compose v2 – pas de clé `version`)
 services:
   mysql:
     image: mysql:8.0
+    container_name: mysql_client
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: service_client
     ports:
-      - "3307:3306"                              # accès MySQL depuis ton OS (client SQL, DBeaver…)
+      - "3307:3306"
     volumes:
-      - mysql_data_client:/var/lib/mysql         # persistance
-      - ./ops/mysql/init:/docker-entrypoint-initdb.d  # (optionnel) .sql/.sh exécutés au 1er démarrage
+      - mysql_data_client:/var/lib/mysql
+      - ./ops/mysql/init:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-proot"]
       interval: 5s
       timeout: 3s
       retries: 20
     restart: unless-stopped
+    networks: [ms-net]
 
   phpmyadmin:
     image: phpmyadmin:5
+    container_name: phpmyadmin_ms
     ports:
-      - "8082:80"                                # http://localhost:8082
+      - "8082:80"                       # http://localhost:8082
     environment:
-      PMA_HOST: mysql
-      PMA_PORT: 3306
+      PMA_HOSTS: mysql_client,mysql_produit,mysql_commande
+      PMA_PORTS: 3306,3306,3306
+      PMA_ARBITRARY: 1
     depends_on:
       mysql:
         condition: service_healthy
     restart: unless-stopped
+    networks: [ms-net]
 
   rabbitmq:
     image: rabbitmq:3.13-management
-    ports:
-      - "5674:5672"     # AMQP
-      - "15674:15672"   # UI http://localhost:15674
+    container_name: rabbitmq
+    hostname: rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_NODENAME: rabbit@rabbitmq
+    ports:
+      - "5672:5672"                    # AMQP pour les apps côté hôte
+      - "15672:15672"                  # UI http://localhost:15672
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
     restart: unless-stopped
+    networks: [ms-net]
 
   service_client:
-    # Tire l'image publiée par GitHub Actions dans GHCR.
-    # Utilise TAG=develop (par défaut) ou un tag de release : TAG=1.2.0
     image: ghcr.io/kuetcheal/service_client:${TAG:-develop}
+    container_name: service_client
     depends_on:
       mysql:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
     environment:
-      # --- MySQL (le host est le nom du service docker) ---
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/service_client?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&useUnicode=true&characterEncoding=utf8
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql_client:3306/service_client?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&useUnicode=true&characterEncoding=utf8
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
 
-      # --- RabbitMQ ---
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
       SPRING_RABBITMQ_PASSWORD: guest
 
-      # --- App / Actuator ---
       SERVER_PORT: 8074
       JWT_SECRET: "mYmvI1eMKEhT8/LciNCcJqyqSg9XKzTuNNmemn0fAnA="
       MANAGEMENT_SERVER_PORT: 8081
       MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,prometheus,metrics
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
     ports:
-      - "8074:8074"                              # API http://localhost:8074
-      - "8081:8081"                              # Actuator http://localhost:8081/actuator/health
+      - "8074:8074"                    # API
+      - "8081:8081"                    # Actuator
     restart: unless-stopped
+    networks: [ms-net]
 
-  # =========================
-  # === Observability stack ==
-  # =========================
+  # === Observability ===
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus_client
@@ -86,31 +90,33 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
       - --web.enable-lifecycle
     ports:
-      - "9090:9090"                              # http://localhost:9090
+      - "9090:9090"                    # http://localhost:9090
     volumes:
       - ./ops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./ops/prometheus/rules.yml:/etc/prometheus/rules.yml:ro
     depends_on:
       - service_client
     restart: unless-stopped
+    networks: [ms-net]
 
   alertmanager:
     image: prom/alertmanager:latest
     container_name: alertmanager_client
     command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
     ports:
-      - "9093:9093"                              # http://localhost:9093
+      - "9093:9093"                    # http://localhost:9093
     volumes:
       - ./ops/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
     depends_on:
       - prometheus
     restart: unless-stopped
+    networks: [ms-net]
 
   grafana:
     image: grafana/grafana:latest
     container_name: grafana_client
     ports:
-      - "3000:3000"                              # http://localhost:3000 (admin/admin)
+      - "3000:3000"                    # admin/admin
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
@@ -121,6 +127,11 @@ services:
     depends_on:
       - prometheus
     restart: unless-stopped
+    networks: [ms-net]
 
 volumes:
   mysql_data_client:
+
+networks:
+  ms-net:
+    external: true
