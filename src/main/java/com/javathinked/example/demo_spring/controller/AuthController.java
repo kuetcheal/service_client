@@ -1,52 +1,62 @@
 package com.javathinked.example.demo_spring.controller;
 
+import com.javathinked.example.demo_spring.dto.LoginRequest;
+import com.javathinked.example.demo_spring.dto.LoginResponse;
 import com.javathinked.example.demo_spring.util.JwtUtil;
+import jakarta.annotation.PostConstruct;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/auth")
-// @CrossOrigin(origins = "*") // décommente si tu testes depuis un front local
 public class AuthController {
 
+    private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
-    public AuthController(JwtUtil jwtUtil) {
+    // stockage très simple en mémoire pour la démo
+    private static class UserInfo {
+        String hash;
+        List<String> roles;
+        UserInfo(String hash, List<String> roles) {
+            this.hash = hash;
+            this.roles = roles;
+        }
+    }
+    private final Map<String, UserInfo> USERS = new HashMap<>();
+
+    public AuthController(PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
+        this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
     }
 
+    @PostConstruct
+    public void init() {
+        // utilisateurs de test (admin/admin, user/user)
+        USERS.put("admin", new UserInfo(passwordEncoder.encode("admin"), List.of("ROLE_ADMIN")));
+        USERS.put("user",  new UserInfo(passwordEncoder.encode("user"),  List.of("ROLE_USER")));
+    }
+
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest req) {
-        // Option B : on accepte n'importe quel username si le mot de passe est "admin123"
-        if (req.getPassword() == null || !req.getPassword().equals("admin123")) {
-            return ResponseEntity.status(401).build();
+    public ResponseEntity<?> login(@RequestBody LoginRequest req) {
+        if (req == null || req.getUsername() == null || req.getPassword() == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Credentials required"));
         }
-        List<String> roles = List.of("ROLE_USER");
-        String token = jwtUtil.generate(req.getUsername(), roles);
-        return ResponseEntity.ok(new AuthResponse(token, req.getUsername(), roles));
-    }
 
-    // ===== DTOs =====
-    public static class LoginRequest {
-        private String username;
-        private String password;
-        public String getUsername() { return username; }
-        public void setUsername(String username) { this.username = username; }
-        public String getPassword() { return password; }
-        public void setPassword(String password) { this.password = password; }
-    }
-
-    public static class AuthResponse {
-        private String token;
-        private String username;
-        private List<String> roles;
-        public AuthResponse(String token, String username, List<String> roles) {
-            this.token = token; this.username = username; this.roles = roles;
+        UserInfo info = USERS.get(req.getUsername());
+        if (info == null || !passwordEncoder.matches(req.getPassword(), info.hash)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid credentials"));
         }
-        public String getToken() { return token; }
-        public String getUsername() { return username; }
-        public List<String> getRoles() { return roles; }
+
+        String token = jwtUtil.generate(req.getUsername(), info.roles);
+        long expiresInSec = jwtUtil.getExpirationMs() / 1000; // nécessite getExpirationMs() dans JwtUtil
+
+        return ResponseEntity.ok(new LoginResponse(token, "Bearer", expiresInSec));
     }
 }

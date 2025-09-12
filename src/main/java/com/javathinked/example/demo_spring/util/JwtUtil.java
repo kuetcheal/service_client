@@ -15,8 +15,9 @@ import java.util.Map;
 
 @Component
 public class JwtUtil {
+
     @Value("${jwt.secret}")
-    private String secretBase64; // clé en Base64
+    private String secretBase64; // clé Base64
 
     @Value("${jwt.expiration:3600000}") // 1h
     private long expirationMs;
@@ -53,6 +54,10 @@ public class JwtUtil {
     @SuppressWarnings("unchecked")
     public List<String> extractRoles(String token) {
         return (List<String>) getAllClaims(token).get("roles");
+    }
+
+    public long getExpirationMs() {
+        return expirationMs;
     }
 
     private Claims getAllClaims(String token) {

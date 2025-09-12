@@ -1,6 +1,6 @@
 package com.javathinked.example.demo_spring.security;
 
-import com.javathinked.example.demo_spring.util.JwtUtil;  
+import com.javathinked.example.demo_spring.util.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,23 +34,22 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String authHeader = request.getHeader("Authorization");
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7); // <-- OK
+            String token = authHeader.substring(7);
 
             if (jwtUtil.validate(token) && SecurityContextHolder.getContext().getAuthentication() == null) {
                 String username = jwtUtil.extractUsername(token);
-                List<String> roles = jwtUtil.extractRoles(token); // ["ROLE_USER", "ROLE_ADMIN"]
+                List<String> roles = jwtUtil.extractRoles(token);
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
                                 username,
-                                null, // <-- pas d'arguments nommés en Java
+                                null,
                                 roles.stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList())
                         );
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         }
-
         filterChain.doFilter(request, response);
     }
 }

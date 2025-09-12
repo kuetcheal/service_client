@@ -61,6 +61,10 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+
+    env_file:
+      - C:/Users/epsiap/secrets/.env.jwt
+
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql_client:3306/service_client?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&useUnicode=true&characterEncoding=utf8
       SPRING_DATASOURCE_USERNAME: root
