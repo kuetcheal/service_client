@@ -26,6 +26,7 @@ Cela garantit que seul un client front-end connu peut communiquer avec l’API, 
 ### Message Broker avec RabbitMQ
 - Objectif : un seul broker RabbitMQ partagé pour tes 3 micro-services (service_client, service_produit, service_commande) qui se publient/consomment des messages entre eux via un exchange unique et des routing keys propres.
   * Crée un réseau Docker externe commun 
+  * un seul RabbitMQ tourne tourne sur service_client et les deux autres services s'y connectent via le réseau Docker externe ( le réseau ms-net)
 
 
 
@@ -80,3 +81,31 @@ d5c222bbf0ceb16eab9f7869405fb15e107d3cc07e384a85197dcb9b4a69e216
 
 # Faire taire les logs RabbitMQ pendant les tests
 - Crée src/test/resources/application-test.properties 
+
+
+
+### points communs des trois services :
+tes trois microservices (client, produit, commande) sont homogènes :
+- chacun déclare seulement sa DB et son service
+- tous partagent le même RabbitMQ (dans service_client) via le réseau ms-net
+- tous exposent leur Actuator pour Prometheus (8081, 8082, 8083)
+
+
+
+
+### pourquoi centraliser le Promotheus 
+prometheus-client → scrape uniquement service-client
+prometheus-produit → scrape uniquement service-produit
+prometheus-commande → scrape uniquement service-commande
+
+👉 Problème : tu as 3 Prometheus séparés, chacun avec sa base de données interne, son UI, ses alertes.
+Ça complique la supervision (tu dois ouvrir 3 dashboards, configurer 3 Grafana, etc.).
+Solution : 1 seul Prometheus centralisé qui scrape tous les services.
+- On va créer un seul service prometheus dans ton repo observability et Il aura un seul fichier prometheus.yml avec des scrape_configs pour client, produit et commande.
+- Prometheus central va les scrapper via Docker network (service-client:8081, service-produit:8082, service-commande:8083).
+- Un seul Grafana (ex: grafana:3000) branché sur ce Prometheus central.
+- Tu pourras créer des dashboards multi-services (ex: comparer les métriques de client vs produit vs commande sur le même graphique).
+
+pourquoi cette solution ?
+- Ça te rapproche des pratiques pro : un repo infra/monitoring qui supervise tes microservices, sans dépendre d’eux.
+- Tu pourras brancher tous tes services actuels et futurs dessus sans mélanger les configs.
