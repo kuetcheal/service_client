@@ -57,6 +57,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cors = new CorsConfiguration();
         cors.setAllowedOrigins(List.of(
+            "http://localhost:3001", // Front React
             "http://localhost:5173" // ton front Vite en dev
         ));
         cors.setAllowedMethods(List.of("GET","POST","PUT","DELETE","PATCH","OPTIONS"));
