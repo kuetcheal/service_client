@@ -22,10 +22,11 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = ClientController.class)
@@ -83,6 +84,66 @@ class ClientControllerTest {
                .andExpect(jsonPath("$.username").value("john.doe"))
                .andExpect(jsonPath("$.firstName").value("John"))
                .andExpect(jsonPath("$.lastName").value("Doe"));
+    }
+
+    @Test
+    void testGetClientById() throws Exception {
+        Client client = new Client("john.doe", "John", "Doe", "75001", "Paris", "Acme", "Client");
+        client.setId(1L);
+
+        Mockito.when(clientService.getClientById(1L)).thenReturn(Optional.of(client));
+
+        mockMvc.perform(get("/api/clients/1")
+                .header("Authorization", "Bearer " + TOKEN))
+               .andExpect(status().isOk())
+               .andExpect(jsonPath("$.id").value(1))
+               .andExpect(jsonPath("$.username").value("john.doe"))
+               .andExpect(jsonPath("$.firstName").value("John"));
+    }
+
+    @Test
+    void testGetClientByIdNotFound() throws Exception {
+        Mockito.when(clientService.getClientById(999L)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/clients/999")
+                .header("Authorization", "Bearer " + TOKEN))
+               .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testUpdateClient() throws Exception {
+        Client existingClient = new Client("john.doe", "John", "Doe", "75001", "Paris", "Acme", "Client");
+        existingClient.setId(1L);
+
+        ClientDto updateDto = new ClientDto();
+        updateDto.setUsername("john.doe");
+        updateDto.setFirstName("John Updated");
+        updateDto.setLastName("Doe Updated");
+
+        Mockito.when(clientService.updateClient(eq(1L), any(Client.class))).thenReturn(existingClient);
+
+        mockMvc.perform(put("/api/clients/1")
+                .header("Authorization", "Bearer " + TOKEN)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(updateDto)))
+               .andExpect(status().isOk())
+               .andExpect(jsonPath("$.id").value(1))
+               .andExpect(jsonPath("$.username").value("john.doe"));
+    }
+
+    @Test
+    void testDeleteClient() throws Exception {
+        Mockito.doNothing().when(clientService).deleteClient(1L);
+
+        mockMvc.perform(delete("/api/clients/1")
+                .header("Authorization", "Bearer " + TOKEN))
+               .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void testUnauthorizedAccess() throws Exception {
+        mockMvc.perform(get("/api/clients"))
+               .andExpect(status().isForbidden());
     }
 
     /**
